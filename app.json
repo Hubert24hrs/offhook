@@ -39,11 +39,6 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-location",
-      "expo-secure-store",
-      "expo-haptics"
-    ],
     "extra": {
       "eas": {
         "projectId": "offhook-mvp"
