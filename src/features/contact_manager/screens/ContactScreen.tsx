@@ -13,21 +13,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { GlassPanel, Button } from '../../../shared/components';
 import { useContactStore, Contact } from '../../../stores/contactStore';
 import { RELATIONSHIP_TYPES, SENSITIVITY_LEVELS } from '../../../shared/constants/categories';
 
-interface ContactScreenProps {
-    onNavigate: (screen: string) => void;
-}
-
-export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {
+export const ContactScreen: React.FC = () => {
+    const navigation = useNavigation();
     const { contacts, loadContacts, addContact, deleteContact } = useContactStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [newName, setNewName] = useState('');
     const [newRelationship, setNewRelationship] = useState('friend');
     const [newSensitivity, setNewSensitivity] = useState<'relaxed' | 'moderate' | 'strict'>('moderate');
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         loadContacts();
@@ -61,6 +60,18 @@ export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {
         );
     };
 
+    const filteredContacts = contacts.filter(c =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleContactTap = (contact: Contact) => {
+        Haptics.selectionAsync();
+        (navigation as any).navigate('Generator', {
+            contactName: contact.name,
+            relationship: contact.relationship,
+        });
+    };
+
     return (
         <View style={styles.container}>
             <LinearGradient colors={['#0A0A1A', '#12122A', '#0A0A1A']} style={StyleSheet.absoluteFill} />
@@ -69,9 +80,6 @@ export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {
                 {/* Header */}
                 <Animated.View entering={FadeInDown.delay(100).springify()}>
                     <View style={styles.header}>
-                        <Pressable onPress={() => onNavigate('home')}>
-                            <Text style={styles.backButton}>← Back</Text>
-                        </Pressable>
                         <Text style={styles.headerTitle}>Contacts</Text>
                         <Pressable onPress={() => setShowAddModal(true)}>
                             <LinearGradient colors={[Colors.accent1, Colors.accent2]} style={styles.addButton}>
@@ -81,13 +89,21 @@ export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {
                     </View>
                 </Animated.View>
 
+                {/* Search */}
+                <Animated.View entering={FadeInDown.delay(150).springify()}>
+                    <View style={styles.searchContainer}>
+                        <Text style={styles.searchIcon}>🔍</Text>
+                        <TextInput style={styles.searchInput} placeholder="Search contacts..." placeholderTextColor={Colors.textMuted} value={searchQuery} onChangeText={setSearchQuery} />
+                    </View>
+                </Animated.View>
+
                 {/* Contact count */}
                 <Animated.View entering={FadeInDown.delay(200).springify()}>
-                    <Text style={styles.countText}>{contacts.length} contacts saved</Text>
+                    <Text style={styles.countText}>{filteredContacts.length} contacts</Text>
                 </Animated.View>
 
                 {/* Contact List */}
-                {contacts.length === 0 ? (
+                {filteredContacts.length === 0 ? (
                     <Animated.View entering={FadeInDown.delay(300).springify()}>
                         <GlassPanel style={styles.emptyCard}>
                             <Text style={styles.emptyIcon}>👥</Text>
@@ -98,9 +114,9 @@ export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {
                         </GlassPanel>
                     </Animated.View>
                 ) : (
-                    contacts.map((contact, index) => (
+                    filteredContacts.map((contact, index) => (
                         <Animated.View key={contact.id} entering={FadeInRight.delay(300 + index * 80).springify()}>
-                            <Pressable onLongPress={() => handleDelete(contact)}>
+                            <Pressable onPress={() => handleContactTap(contact)} onLongPress={() => handleDelete(contact)}>
                                 <GlassPanel style={styles.contactCard}>
                                     <View style={styles.contactRow}>
                                         <View style={styles.contactAvatar}>
@@ -198,7 +214,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: Spacing.md,
     },
-    backButton: { ...Typography.bodyMedium, color: Colors.accent1, fontWeight: '600' },
+    searchContainer: {
+        flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceLight,
+        borderRadius: BorderRadius.lg, paddingHorizontal: Spacing.md,
+        borderWidth: 1, borderColor: Colors.glassBorder, marginBottom: Spacing.md,
+    },
+    searchIcon: { fontSize: 16, marginRight: Spacing.sm },
+    searchInput: { flex: 1, color: Colors.textPrimary, ...Typography.bodyMedium, paddingVertical: Spacing.md },
     headerTitle: { ...Typography.headlineMedium, color: Colors.textPrimary },
     addButton: {
         width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',

@@ -11,16 +11,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { GlassPanel, Button } from '../../../shared/components';
 import { useUserStore } from '../../../stores/userStore';
 import { useExcuseStore } from '../../../stores/excuseStore';
 
-interface SettingsScreenProps {
-    onNavigate: (screen: string) => void;
-}
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) => {
+export const SettingsScreen: React.FC = () => {
+    const navigation = useNavigation();
     const { username, email, region, language, isPro, logout, updatePreferences } = useUserStore();
     const { excuseHistory, dailyGenerations } = useExcuseStore();
 
@@ -32,7 +31,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
                 style: 'destructive',
                 onPress: async () => {
                     await logout();
-                    onNavigate('auth');
                 },
             },
         ]);
@@ -46,9 +44,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
                 {/* Header */}
                 <Animated.View entering={FadeInDown.delay(100).springify()}>
                     <View style={styles.header}>
-                        <Pressable onPress={() => onNavigate('home')}>
-                            <Text style={styles.backButton}>← Back</Text>
-                        </Pressable>
                         <Text style={styles.headerTitle}>Settings</Text>
                         <View style={{ width: 50 }} />
                     </View>
@@ -127,7 +122,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate }) =>
                 {/* Pro Upgrade */}
                 {!isPro && (
                     <Animated.View entering={FadeInDown.delay(600).springify()}>
-                        <Pressable onPress={() => onNavigate('premium')}>
+                        <Pressable onPress={() => (navigation as any).navigate('Premium')}>
                             <LinearGradient colors={['#6C63FF', '#FF2D92']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.proBanner}>
                                 <Text style={styles.proBannerTitle}>⭐ Upgrade to OFFHOOK Pro</Text>
                                 <Text style={styles.proBannerSub}>Unlimited excuses • All features • Ad-free</Text>

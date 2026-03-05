@@ -6,16 +6,17 @@ import {
     StyleSheet,
     ScrollView,
     Pressable,
+    Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { GlassPanel, Button } from '../../../shared/components';
+import { useUserStore } from '../../../stores/userStore';
 
-interface PremiumScreenProps {
-    onNavigate: (screen: string) => void;
-}
+
 
 const PRO_FEATURES = [
     { icon: '♾️', title: 'Unlimited Excuses', desc: 'No daily limits' },
@@ -32,11 +33,29 @@ const PRO_FEATURES = [
     { icon: '⚡', title: 'Priority AI', desc: 'Faster & smarter' },
 ];
 
-export const PremiumScreen: React.FC<PremiumScreenProps> = ({ onNavigate }) => {
+export const PremiumScreen: React.FC = () => {
+    const navigation = useNavigation();
+    const { setProStatus } = useUserStore();
+
     const handleSubscribe = (plan: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        // RevenueCat integration placeholder
-        // For MVP, just show a message
+        // Mock purchase for MVP
+        Alert.alert(
+            'Subscribe to Pro',
+            `Activate ${plan} plan? (Mock purchase for MVP)`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Activate Pro',
+                    onPress: () => {
+                        setProStatus(true);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        Alert.alert('Welcome to Pro!', 'All features are now unlocked.');
+                        navigation.goBack();
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -48,7 +67,7 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ onNavigate }) => {
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* Close button */}
-                <Pressable style={styles.closeButton} onPress={() => onNavigate('home')}>
+                <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
                     <Text style={styles.closeText}>✕</Text>
                 </Pressable>
 

@@ -15,12 +15,9 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { GlassPanel, Button } from '../../../shared/components';
 import { useUserStore } from '../../../stores/userStore';
+import type { RootStackScreenProps } from '../../../navigation/types';
 
-interface AuthScreenProps {
-    onComplete: () => void;
-}
-
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
+export const AuthScreen: React.FC<RootStackScreenProps<'Auth'>> = ({ navigation }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -31,13 +28,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         // For MVP, skip real auth and just log in
         await login(email || 'user@offhook.ai', name || 'User');
-        onComplete();
     };
 
     const handleSkip = async () => {
         Haptics.selectionAsync();
         await login('guest@offhook.ai', 'Guest');
-        onComplete();
     };
 
     return (

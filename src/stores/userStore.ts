@@ -12,8 +12,10 @@ interface UserState {
     // Preferences
     region: string;
     language: string;
-    darkMode: boolean; // Always dark by design
+    darkMode: boolean;
     isPro: boolean;
+    apiKey: string;
+    weatherApiKey: string;
 
     // Actions
     loadUser: () => Promise<void>;
@@ -21,6 +23,9 @@ interface UserState {
     login: (email: string, username: string) => Promise<void>;
     logout: () => Promise<void>;
     updatePreferences: (prefs: Partial<UserState>) => Promise<void>;
+    setProStatus: (isPro: boolean) => Promise<void>;
+    setApiKey: (key: string) => Promise<void>;
+    setWeatherApiKey: (key: string) => Promise<void>;
 }
 
 const STORAGE_KEY = '@offhook_user';
@@ -34,6 +39,8 @@ export const useUserStore = create<UserState>((set, get) => ({
     language: 'en',
     darkMode: true,
     isPro: false,
+    apiKey: '',
+    weatherApiKey: '',
 
     loadUser: async () => {
         try {
@@ -69,5 +76,20 @@ export const useUserStore = create<UserState>((set, get) => ({
     updatePreferences: async (prefs) => {
         set(prefs);
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), ...prefs }));
+    },
+
+    setProStatus: async (isPro) => {
+        set({ isPro });
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), isPro }));
+    },
+
+    setApiKey: async (key) => {
+        set({ apiKey: key });
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), apiKey: key }));
+    },
+
+    setWeatherApiKey: async (key) => {
+        set({ weatherApiKey: key });
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...get(), weatherApiKey: key }));
     },
 }));

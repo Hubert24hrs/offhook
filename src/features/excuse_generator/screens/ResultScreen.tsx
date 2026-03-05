@@ -1,6 +1,6 @@
-// OFFHOOK — Excuse Result Screen
-// Animated 3D card reveal with all excuse details, risk gauge, delivery tips
-import React from 'react';
+// OFFHOOK — Result Screen
+// Displays the generated excuse with risk gauge, delivery tips, and actions
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -8,39 +8,50 @@ import {
     ScrollView,
     Pressable,
     Share,
-    Platform,
+    Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
-import { GlassPanel, Card, RiskGauge, AnimatedText, Button } from '../../../shared/components';
+import { GlassPanel, Button, RiskGauge } from '../../../shared/components';
 import { useExcuseStore } from '../../../stores/excuseStore';
+import { scheduleFollowUpReminder } from '../../../core/services/notifications';
+import type { RootStackScreenProps } from '../../../navigation/types';
 
-interface ResultScreenProps {
-    onNavigate: (screen: string) => void;
-}
-
-export const ResultScreen: React.FC<ResultScreenProps> = ({ onNavigate }) => {
-    const { currentExcuse, clearCurrentExcuse } = useExcuseStore();
+export const ResultScreen: React.FC = () => {
+    const navigation = useNavigation();
+    const { currentExcuse, currentRiskScore, currentRiskReason } = useExcuseStore();
+    const [copied, setCopied] = useState(false);
+    const [followUpScheduled, setFollowUpScheduled] = useState(false);
 
     if (!currentExcuse) {
         return (
             <View style={styles.container}>
-                <LinearGradient colors={['#0A0A1A', '#12122A']} style={StyleSheet.absoluteFill} />
-                <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>🤷</Text>
-                    <Text style={styles.emptyText}>No excuse generated yet</Text>
-                    <Button title="Go Back" onPress={() => onNavigate('home')} />
+                <LinearGradient colors={['#0A0A1A', '#12122A', '#0A0A1A']} style={StyleSheet.absoluteFill} />
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No excuse generated yet.</Text>
+                    <Button title="Go Back" onPress={() => navigation.goBack()} />
                 </View>
             </View>
         );
     }
 
+    const riskColor = currentRiskScore <= 25
+        ? Colors.riskLow
+        : currentRiskScore <= 50
+            ? Colors.riskMedium
+            : currentRiskScore <= 75
+                ? Colors.riskHigh
+                : Colors.riskCritical;
+
     const handleCopy = async () => {
         await Clipboard.setStringAsync(currentExcuse.excuse_text);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleShare = async () => {
@@ -53,288 +64,171 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ onNavigate }) => {
         }
     };
 
-    const handleNewExcuse = () => {
-        clearCurrentExcuse();
-        onNavigate('generator');
+    const handleScheduleFollowUp = async () => {
+        if (currentExcuse.follow_up_suggestion) {
+            const notifId = await scheduleFollowUpReminder(
+                'latest',
+                currentExcuse.follow_up_suggestion,
+                60 // 1 hour later
+            );
+            if (notifId) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setFollowUpScheduled(true);
+                Alert.alert('Reminder Set!', 'We will remind you in 1 hour to follow up.');
+            } else {
+                Alert.alert('Permission Needed', 'Please enable notifications in your device settings.');
+            }
+        }
     };
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#0A0A1A', '#12122A', '#0A0A1A']}
-                style={StyleSheet.absoluteFill}
-            />
+            <LinearGradient colors={['#0A0A1A', '#12122A', '#0A0A1A']} style={StyleSheet.absoluteFill} />
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {/* Header */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {/* Close button */}
                 <Animated.View entering={FadeInDown.delay(100).springify()}>
-                    <View style={styles.header}>
-                        <Pressable onPress={() => onNavigate('home')}>
-                            <Text style={styles.backButton}>← Home</Text>
-                        </Pressable>
-                        <Text style={styles.headerTitle}>Your Excuse</Text>
-                        <View style={{ width: 50 }} />
-                    </View>
+                    <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
+                        <Text style={styles.closeText}>← Back</Text>
+                    </Pressable>
                 </Animated.View>
 
-                {/* Success Badge */}
-                <Animated.View entering={ZoomIn.delay(200).springify()} style={styles.successBadge}>
-                    <Text style={styles.successIcon}>✨</Text>
-                    <Text style={styles.successText}>Excuse Generated!</Text>
+                {/* Success header */}
+                <Animated.View entering={ZoomIn.delay(200).springify()} style={styles.successHeader}>
+                    <Text style={styles.successIcon}>✅</Text>
+                    <Text style={styles.successTitle}>Excuse Generated!</Text>
                 </Animated.View>
 
-                {/* Main Excuse Card */}
+                {/* Main excuse card */}
+                <Animated.View entering={FadeInDown.delay(300).springify()}>
+                    <GlassPanel style={styles.excuseCard} glowColor={Colors.accent1}>
+                        <Text style={styles.excuseText}>{currentExcuse.excuse_text}</Text>
+                    </GlassPanel>
+                </Animated.View>
+
+                {/* Risk assessment */}
                 <Animated.View entering={FadeInDown.delay(400).springify()}>
-                    <Card variant="glowing" glowColor={Colors.accent1}>
-                        <LinearGradient
-                            colors={['rgba(108, 99, 255, 0.1)', 'rgba(0, 245, 196, 0.05)']}
-                            style={styles.excuseGradient}
-                        >
-                            <AnimatedText
-                                text={currentExcuse.excuse_text}
-                                style={styles.excuseText}
-                                animation="typewriter"
-                                duration={2000}
-                            />
-                        </LinearGradient>
-                    </Card>
+                    <GlassPanel style={styles.riskCard}>
+                        <Text style={styles.cardTitle}>🛡️ Risk Assessment</Text>
+                        <RiskGauge score={currentRiskScore} />
+                        <Text style={[styles.riskLabel, { color: riskColor }]}>
+                            Risk Score: {currentRiskScore}/100
+                        </Text>
+                        <Text style={styles.riskReason}>{currentRiskReason}</Text>
+                    </GlassPanel>
                 </Animated.View>
 
-                {/* Action Buttons */}
-                <Animated.View entering={FadeInDown.delay(600).springify()} style={styles.actionRow}>
+                {/* Delivery tip */}
+                <Animated.View entering={FadeInDown.delay(500).springify()}>
+                    <GlassPanel style={styles.tipCard}>
+                        <Text style={styles.cardTitle}>💡 Delivery Tip</Text>
+                        <Text style={styles.tipText}>{currentExcuse.delivery_tip}</Text>
+                        <View style={styles.tipMeta}>
+                            <Text style={styles.metaLabel}>Best send time:</Text>
+                            <Text style={styles.metaValue}>{currentExcuse.best_send_time}</Text>
+                        </View>
+                    </GlassPanel>
+                </Animated.View>
+
+                {/* Follow-up suggestion */}
+                {currentExcuse.follow_up_suggestion && (
+                    <Animated.View entering={FadeInDown.delay(600).springify()}>
+                        <GlassPanel style={styles.followUpCard}>
+                            <Text style={styles.cardTitle}>🔄 Follow-up Suggestion</Text>
+                            <Text style={styles.followUpText}>{currentExcuse.follow_up_suggestion}</Text>
+                            <Button
+                                title={followUpScheduled ? '✅ Reminder Set!' : '🔔 Remind Me in 1 Hour'}
+                                onPress={handleScheduleFollowUp}
+                                variant={followUpScheduled ? 'ghost' : 'outline'}
+                                size="sm"
+                            />
+                        </GlassPanel>
+                    </Animated.View>
+                )}
+
+                {/* Supporting context */}
+                {currentExcuse.supporting_context && (
+                    <Animated.View entering={FadeInDown.delay(700).springify()}>
+                        <GlassPanel style={styles.contextCard}>
+                            <Text style={styles.cardTitle}>🌍 Why This Works</Text>
+                            <Text style={styles.contextText}>{currentExcuse.supporting_context}</Text>
+                        </GlassPanel>
+                    </Animated.View>
+                )}
+
+                {/* Action buttons */}
+                <Animated.View entering={FadeInDown.delay(800).springify()} style={styles.actionRow}>
                     <Pressable style={styles.actionButton} onPress={handleCopy}>
                         <LinearGradient
-                            colors={[Colors.accent1, Colors.accent1Light]}
+                            colors={copied ? ['#00F5C4', '#00D4AA'] : [Colors.accent1, '#8B85FF']}
                             style={styles.actionGradient}
                         >
-                            <Text style={styles.actionIcon}>📋</Text>
-                            <Text style={styles.actionLabel}>Copy</Text>
+                            <Text style={styles.actionIcon}>{copied ? '✅' : '📋'}</Text>
+                            <Text style={styles.actionLabel}>{copied ? 'Copied!' : 'Copy'}</Text>
                         </LinearGradient>
                     </Pressable>
+
                     <Pressable style={styles.actionButton} onPress={handleShare}>
                         <LinearGradient
-                            colors={[Colors.accent2Dark, Colors.accent2]}
+                            colors={['#FF2D92', '#FF6B6B']}
                             style={styles.actionGradient}
                         >
                             <Text style={styles.actionIcon}>📤</Text>
                             <Text style={styles.actionLabel}>Share</Text>
                         </LinearGradient>
                     </Pressable>
-                    <Pressable style={styles.actionButton} onPress={handleNewExcuse}>
-                        <View style={styles.actionOutline}>
-                            <Text style={styles.actionIcon}>🔄</Text>
-                            <Text style={[styles.actionLabel, { color: Colors.textSecondary }]}>New</Text>
-                        </View>
+
+                    <Pressable
+                        style={styles.actionButton}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            navigation.goBack();
+                        }}
+                    >
+                        <LinearGradient
+                            colors={['#00F5C4', '#00D4AA']}
+                            style={styles.actionGradient}
+                        >
+                            <Text style={styles.actionIcon}>⚡</Text>
+                            <Text style={styles.actionLabel}>New</Text>
+                        </LinearGradient>
                     </Pressable>
                 </Animated.View>
 
-                {/* Risk Meter */}
-                <Animated.View entering={FadeInDown.delay(800).springify()}>
-                    <GlassPanel style={styles.riskSection} glowColor={
-                        currentExcuse.risk_score <= 30 ? Colors.riskLow :
-                            currentExcuse.risk_score <= 60 ? Colors.riskMedium : Colors.riskCritical
-                    }>
-                        <Text style={styles.sectionTitle}>Risk Assessment</Text>
-                        <View style={styles.riskGaugeContainer}>
-                            <RiskGauge score={currentExcuse.risk_score} size={180} />
-                        </View>
-                        <Text style={styles.riskReason}>{currentExcuse.risk_reason}</Text>
-                    </GlassPanel>
-                </Animated.View>
-
-                {/* Delivery Tips */}
-                <Animated.View entering={FadeInDown.delay(1000).springify()}>
-                    <GlassPanel style={styles.tipSection} glowColor={Colors.accent2}>
-                        <Text style={styles.sectionTitle}>🎯 Delivery Coach</Text>
-
-                        <View style={styles.tipCard}>
-                            <Text style={styles.tipLabel}>How to deliver</Text>
-                            <Text style={styles.tipText}>{currentExcuse.delivery_tip}</Text>
-                        </View>
-
-                        <View style={styles.tipCard}>
-                            <Text style={styles.tipLabel}>Best time to send</Text>
-                            <Text style={styles.tipText}>{currentExcuse.best_send_time}</Text>
-                        </View>
-
-                        <View style={styles.tipCard}>
-                            <Text style={styles.tipLabel}>Supporting context</Text>
-                            <Text style={styles.tipText}>{currentExcuse.supporting_context}</Text>
-                        </View>
-
-                        <View style={styles.tipCard}>
-                            <Text style={styles.tipLabel}>Follow-up (1 hour later)</Text>
-                            <Text style={styles.tipText}>{currentExcuse.follow_up_suggestion}</Text>
-                        </View>
-                    </GlassPanel>
-                </Animated.View>
-
-                {/* Cultural Tags */}
-                <Animated.View entering={FadeInDown.delay(1200).springify()}>
-                    <View style={styles.tagRow}>
-                        {currentExcuse.cultural_tags.map((tag, i) => (
-                            <View key={i} style={styles.tag}>
-                                <Text style={styles.tagText}>#{tag}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </Animated.View>
-
-                <View style={{ height: 100 }} />
+                <View style={{ height: 50 }} />
             </ScrollView>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.primary,
-    },
-    scrollContent: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: 60,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: Spacing.lg,
-    },
-    backButton: {
-        ...Typography.bodyMedium,
-        color: Colors.accent1,
-        fontWeight: '600',
-    },
-    headerTitle: {
-        ...Typography.headlineMedium,
-        color: Colors.textPrimary,
-    },
-    successBadge: {
-        alignItems: 'center',
-        marginBottom: Spacing.xl,
-    },
-    successIcon: {
-        fontSize: 40,
-        marginBottom: Spacing.xs,
-    },
-    successText: {
-        ...Typography.headlineSmall,
-        color: Colors.accent2,
-        fontWeight: '700',
-    },
-    excuseGradient: {
-        padding: Spacing.md,
-        borderRadius: BorderRadius.lg,
-    },
-    excuseText: {
-        ...Typography.bodyLarge,
-        color: Colors.textPrimary,
-        lineHeight: 26,
-        fontSize: 17,
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        marginVertical: Spacing.xl,
-    },
-    actionButton: {
-        flex: 1,
-        borderRadius: BorderRadius.lg,
-        overflow: 'hidden',
-    },
-    actionGradient: {
-        paddingVertical: Spacing.md,
-        alignItems: 'center',
-        borderRadius: BorderRadius.lg,
-    },
-    actionOutline: {
-        paddingVertical: Spacing.md,
-        alignItems: 'center',
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
-        backgroundColor: Colors.surfaceLight,
-    },
-    actionIcon: {
-        fontSize: 20,
-        marginBottom: Spacing.xxs,
-    },
-    actionLabel: {
-        ...Typography.caption,
-        color: '#FFF',
-        fontWeight: '700',
-    },
-    riskSection: {
-        marginBottom: Spacing.lg,
-        alignItems: 'center',
-    },
-    riskGaugeContainer: {
-        marginVertical: Spacing.md,
-    },
-    riskReason: {
-        ...Typography.bodyMedium,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: Spacing.sm,
-    },
-    tipSection: {
-        marginBottom: Spacing.lg,
-    },
-    sectionTitle: {
-        ...Typography.headlineSmall,
-        color: Colors.textPrimary,
-        marginBottom: Spacing.md,
-    },
-    tipCard: {
-        backgroundColor: Colors.surfaceLight,
-        borderRadius: BorderRadius.lg,
-        padding: Spacing.md,
-        marginBottom: Spacing.sm,
-    },
-    tipLabel: {
-        ...Typography.labelSmall,
-        color: Colors.accent2,
-        marginBottom: Spacing.xs,
-    },
-    tipText: {
-        ...Typography.bodyMedium,
-        color: Colors.textPrimary,
-        lineHeight: 20,
-    },
-    tagRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.sm,
-        marginBottom: Spacing.xl,
-    },
-    tag: {
-        backgroundColor: `${Colors.accent1}15`,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: BorderRadius.round,
-        borderWidth: 1,
-        borderColor: `${Colors.accent1}30`,
-    },
-    tagText: {
-        ...Typography.caption,
-        color: Colors.accent1,
-        fontWeight: '600',
-    },
-    emptyState: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.lg,
-    },
-    emptyIcon: {
-        fontSize: 50,
-    },
-    emptyText: {
-        ...Typography.bodyLarge,
-        color: Colors.textMuted,
-    },
+    container: { flex: 1, backgroundColor: Colors.primary },
+    scrollContent: { paddingHorizontal: Spacing.lg, paddingTop: 60 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xl },
+    emptyText: { ...Typography.bodyLarge, color: Colors.textMuted, marginBottom: Spacing.lg },
+    closeButton: { marginBottom: Spacing.md },
+    closeText: { ...Typography.bodyMedium, color: Colors.accent1, fontWeight: '600' },
+    successHeader: { alignItems: 'center', marginBottom: Spacing.xl },
+    successIcon: { fontSize: 48, marginBottom: Spacing.sm },
+    successTitle: { ...Typography.headlineLarge, color: Colors.textPrimary, fontWeight: '800' },
+    excuseCard: { marginBottom: Spacing.md },
+    excuseText: { ...Typography.bodyLarge, color: Colors.textPrimary, lineHeight: 26, fontWeight: '500' },
+    riskCard: { marginBottom: Spacing.md, alignItems: 'center' },
+    cardTitle: { ...Typography.bodyLarge, color: Colors.textPrimary, fontWeight: '700', marginBottom: Spacing.md, alignSelf: 'flex-start' },
+    riskLabel: { ...Typography.headlineSmall, fontWeight: '700', marginTop: Spacing.sm },
+    riskReason: { ...Typography.bodySmall, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.xs },
+    tipCard: { marginBottom: Spacing.md },
+    tipText: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22 },
+    tipMeta: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
+    metaLabel: { ...Typography.caption, color: Colors.textMuted },
+    metaValue: { ...Typography.caption, color: Colors.accent1, fontWeight: '600' },
+    followUpCard: { marginBottom: Spacing.md },
+    followUpText: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginBottom: Spacing.md },
+    contextCard: { marginBottom: Spacing.lg },
+    contextText: { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22 },
+    actionRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
+    actionButton: { flex: 1, borderRadius: BorderRadius.xl, overflow: 'hidden' },
+    actionGradient: { paddingVertical: Spacing.lg, alignItems: 'center', borderRadius: BorderRadius.xl },
+    actionIcon: { fontSize: 24, marginBottom: Spacing.xs },
+    actionLabel: { ...Typography.caption, color: '#FFF', fontWeight: '700' },
 });

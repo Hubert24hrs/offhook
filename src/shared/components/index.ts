@@ -4,3 +4,5 @@ export { Card } from './Card';
 export { RiskGauge } from './RiskGauge';
 export { CategorySelector } from './CategorySelector';
 export { AnimatedText } from './AnimatedText';
+export { TabBar } from './TabBar';
+

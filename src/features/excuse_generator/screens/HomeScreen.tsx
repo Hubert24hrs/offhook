@@ -1,6 +1,6 @@
 // OFFHOOK — Home Dashboard Screen
 // Weather overlay, quick excuse, suggested excuses, recent activity
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -12,43 +12,55 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    withDelay,
-    withTiming,
     FadeInDown,
     FadeInRight,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors, Typography, Spacing, BorderRadius, Gradients } from '../../../core/theme';
-import { GlassPanel, Button, Card, AnimatedText } from '../../../shared/components';
+import { useNavigation } from '@react-navigation/native';
+import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
+import { GlassPanel, Button, AnimatedText } from '../../../shared/components';
 import { useExcuseStore } from '../../../stores/excuseStore';
 import { useContactStore } from '../../../stores/contactStore';
 import { useUserStore } from '../../../stores/userStore';
 import { EXCUSE_CATEGORIES } from '../../../shared/constants/categories';
+import { getWeather, type WeatherData } from '../../../core/services/weather';
+import { getCurrentLocation, type LocationData } from '../../../core/services/location';
 
 const { width } = Dimensions.get('window');
 
-interface HomeScreenProps {
-    onNavigate: (screen: string) => void;
-}
-
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
+export const HomeScreen: React.FC = () => {
+    const navigation = useNavigation();
     const { dailyGenerations, maxDailyFree, isPro, excuseHistory, loadHistory } = useExcuseStore();
     const { contacts, loadContacts } = useContactStore();
     const { username, loadUser } = useUserStore();
+    const [weather, setWeather] = useState<WeatherData | null>(null);
+    const [location, setLocation] = useState<LocationData | null>(null);
 
     useEffect(() => {
         loadHistory();
         loadContacts();
         loadUser();
+        loadContextData();
     }, []);
+
+    const loadContextData = async () => {
+        try {
+            const loc = await getCurrentLocation();
+            setLocation(loc);
+            if (loc) {
+                const w = await getWeather(loc.coords.latitude, loc.coords.longitude);
+                setWeather(w);
+            }
+        } catch (e) {
+            // Fallback handled in services
+        }
+    };
 
     const remainingExcuses = isPro ? '∞' : `${maxDailyFree - dailyGenerations}`;
 
-    // Mock weather
-    const weather = { condition: '🌤️ Partly Cloudy', temp: '24°C', city: 'Lagos' };
+    const displayWeather = weather
+        ? { condition: `${weather.icon} ${weather.condition}`, temp: `${weather.temperature}°C`, city: location?.city || 'Unknown' }
+        : { condition: '🌤️ Partly Cloudy', temp: '24°C', city: 'Loading...' };
 
     return (
         <View style={styles.container}>
@@ -72,7 +84,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                     </View>
                     <Pressable
                         style={styles.profileButton}
-                        onPress={() => onNavigate('settings')}
+                        onPress={() => (navigation as any).navigate('Settings')}
                     >
                         <LinearGradient
                             colors={[Colors.accent1, Colors.accent2]}
@@ -90,9 +102,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                     <GlassPanel style={styles.weatherCard} glowColor={Colors.accent2}>
                         <View style={styles.weatherRow}>
                             <View>
-                                <Text style={styles.weatherCity}>📍 {weather.city}</Text>
+                                <Text style={styles.weatherCity}>📍 {displayWeather.city}</Text>
                                 <Text style={styles.weatherCondition}>
-                                    {weather.condition} • {weather.temp}
+                                    {displayWeather.condition} • {displayWeather.temp}
                                 </Text>
                             </View>
                             <View style={styles.excuseCounter}>
@@ -109,7 +121,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                         style={styles.quickExcuseButton}
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                            onNavigate('generator');
+                            (navigation as any).navigate('Generator');
                         }}
                     >
                         <LinearGradient
@@ -144,7 +156,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                                     style={styles.categoryCard}
                                     onPress={() => {
                                         Haptics.selectionAsync();
-                                        onNavigate('generator');
+                                        (navigation as any).navigate('Generator');
                                     }}
                                 >
                                     <LinearGradient
@@ -236,26 +248,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                             icon="👥"
                             title="Contacts"
                             subtitle={`${contacts.length} saved`}
-                            onPress={() => onNavigate('contacts')}
+                            onPress={() => (navigation as any).navigate('Contacts')}
                         />
                         <FeatureCard
                             icon="📊"
                             title="Risk Meter"
                             subtitle="Analyze risk"
-                            onPress={() => onNavigate('generator')}
+                            onPress={() => (navigation as any).navigate('Generator')}
                         />
                         <FeatureCard
                             icon="🎭"
                             title="Simulator"
                             subtitle="Practice"
-                            onPress={() => onNavigate('generator')}
+                            onPress={() => (navigation as any).navigate('Generator')}
                             isPro
                         />
                         <FeatureCard
                             icon="🛡️"
                             title="Alibi"
                             subtitle="Full stories"
-                            onPress={() => onNavigate('generator')}
+                            onPress={() => (navigation as any).navigate('Generator')}
                             isPro
                         />
                     </View>
@@ -264,7 +276,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 {/* Pro Banner */}
                 {!isPro && (
                     <Animated.View entering={FadeInDown.delay(900).springify()}>
-                        <Pressable onPress={() => onNavigate('premium')}>
+                        <Pressable onPress={() => (navigation as any).navigate('Premium')}>
                             <LinearGradient
                                 colors={['#6C63FF', '#FF2D92']}
                                 start={{ x: 0, y: 0 }}
@@ -280,7 +292,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                     </Animated.View>
                 )}
 
-                <View style={{ height: 100 }} />
+                <View style={{ height: 120 }} />
             </ScrollView>
         </View>
     );

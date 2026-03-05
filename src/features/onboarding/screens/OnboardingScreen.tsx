@@ -14,12 +14,9 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { Button } from '../../../shared/components';
 import { useUserStore } from '../../../stores/userStore';
+import type { RootStackScreenProps } from '../../../navigation/types';
 
 const { width, height } = Dimensions.get('window');
-
-interface OnboardingScreenProps {
-    onComplete: () => void;
-}
 
 const SLIDES = [
     {
@@ -54,7 +51,7 @@ const SLIDES = [
     },
 ];
 
-export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
+export const OnboardingScreen: React.FC<RootStackScreenProps<'Onboarding'>> = ({ navigation }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
     const { setOnboardingComplete } = useUserStore();
@@ -72,13 +69,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     const handleFinish = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         await setOnboardingComplete();
-        onComplete();
     };
 
     const handleSkip = async () => {
         Haptics.selectionAsync();
         await setOnboardingComplete();
-        onComplete();
     };
 
     const renderSlide = ({ item, index }: { item: typeof SLIDES[0]; index: number }) => (
