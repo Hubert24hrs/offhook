@@ -1,30 +1,53 @@
 {
   "expo": {
-    "name": "offhook",
+    "name": "OFFHOOK",
     "slug": "offhook",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "offhook",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A1A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.offhook.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "OFFHOOK uses your location to generate context-aware excuses grounded in your real surroundings.",
+        "NSLocationAlwaysUsageDescription": "OFFHOOK uses your location to provide hyper-realistic excuses."
+      }
     },
     "android": {
+      "package": "com.offhook.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A0A1A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-location",
+      "expo-secure-store",
+      "expo-haptics"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "offhook-mvp"
+      }
     }
   }
 }
