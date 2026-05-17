@@ -44,7 +44,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
         return true;
     } catch (error) {
-        console.warn('Notification permission error:', error);
+        // console.warn('Notification permission error:', error);
         return false;
     }
 }
@@ -73,7 +73,7 @@ export async function scheduleFollowUpReminder(
 
         return notificationId;
     } catch (error) {
-        console.warn('Failed to schedule follow-up notification:', error);
+        // console.warn('Failed to schedule follow-up notification:', error);
         return null;
     }
 }
@@ -102,7 +102,7 @@ export async function scheduleSendTimeReminder(
 
         return notificationId;
     } catch (error) {
-        console.warn('Failed to schedule send-time notification:', error);
+        // console.warn('Failed to schedule send-time notification:', error);
         return null;
     }
 }
@@ -111,6 +111,6 @@ export async function cancelNotification(notificationId: string): Promise<void> 
     try {
         await Notifications.cancelScheduledNotificationAsync(notificationId);
     } catch (error) {
-        console.warn('Failed to cancel notification:', error);
+        // console.warn('Failed to cancel notification:', error);
     }
 }

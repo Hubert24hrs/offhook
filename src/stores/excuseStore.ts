@@ -64,7 +64,7 @@ export const useExcuseStore = create<ExcuseState>((set, get) => ({
 
     excuseHistory: [],
     dailyGenerations: 0,
-    maxDailyFree: 3,
+    maxDailyFree: 5,
     isPro: false,
 
     setSelection: (field, value) => set({ [field]: value } as any),

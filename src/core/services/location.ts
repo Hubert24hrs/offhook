@@ -29,7 +29,7 @@ export async function requestLocationPermission(): Promise<boolean> {
         const { status } = await Location.requestForegroundPermissionsAsync();
         return status === 'granted';
     } catch (error) {
-        console.warn('Location permission error:', error);
+        // console.warn('Location permission error:', error);
         return false;
     }
 }
@@ -70,7 +70,7 @@ export async function getCurrentLocation(): Promise<LocationData> {
 
         return locationData;
     } catch (error) {
-        console.warn('Location fetch error, using mock:', error);
+        // console.warn('Location fetch error, using mock:', error);
         return MOCK_LOCATION;
     }
 }

@@ -54,7 +54,7 @@ class HistoryManager {
             this.themeRegistry = themeData ? JSON.parse(themeData) : [];
             this.lastBucket = bucketData || '';
         } catch (error) {
-            console.warn('Failed to load history:', error);
+            // console.warn('Failed to load history:', error);
         }
     }
 
@@ -149,7 +149,7 @@ class HistoryManager {
                 AsyncStorage.setItem(STORAGE_KEYS.LAST_BUCKET, this.lastBucket),
             ]);
         } catch (error) {
-            console.warn('Failed to persist history:', error);
+            // console.warn('Failed to persist history:', error);
         }
     }
 }

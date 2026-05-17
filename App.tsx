@@ -9,6 +9,8 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Colors } from './src/core/theme';
 import { useUserStore } from './src/stores/userStore';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { initializePurchases } from './src/core/services/purchases';
+import { historyManager } from './src/core/ai';
 
 // Error boundary for web debugging
 class ErrorBoundary extends React.Component<
@@ -61,6 +63,11 @@ export default function App() {
 
   const initApp = async () => {
     await loadUser();
+    // Initialize history manager (anti-repetition engine)
+    await historyManager.initialize();
+    // Initialize RevenueCat (no-op if keys not configured)
+    const { username } = useUserStore.getState();
+    await initializePurchases(username || undefined);
     // Brief splash delay for branding
     setTimeout(() => {
       setIsReady(true);

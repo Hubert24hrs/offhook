@@ -14,7 +14,7 @@ export async function generateExcuse(
         try {
             return await callClaudeAPI(context, apiKey);
         } catch (error: any) {
-            console.warn('Real API failed, falling back to mock:', error.message);
+            // Silently fall back to mock when real API fails
             // Fall through to mock
         }
     }

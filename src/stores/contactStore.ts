@@ -39,7 +39,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
                 set({ contacts: JSON.parse(data) });
             }
         } catch (error) {
-            console.warn('Failed to load contacts:', error);
+            // Silently handle — contacts will start empty
         }
     },
 

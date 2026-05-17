@@ -50,7 +50,7 @@ export const useUserStore = create<UserState>((set, get) => ({
                 set(parsed);
             }
         } catch (error) {
-            console.warn('Failed to load user:', error);
+            // console.warn('Failed to load user:', error);
         }
     },
 

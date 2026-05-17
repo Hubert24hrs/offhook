@@ -1,5 +1,6 @@
 // OFFHOOK — Weather Service
-// OpenWeatherMap integration with caching and mock fallback
+// Uses Open-Meteo API (https://open-meteo.com) — FREE, no API key required
+// WMO weather interpretation codes: https://open-meteo.com/en/docs#weathervariables
 
 export interface WeatherData {
     condition: string;
@@ -14,20 +15,6 @@ let cachedWeather: WeatherData | null = null;
 let lastWeatherFetch = 0;
 const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
-const WEATHER_ICONS: Record<string, string> = {
-    Clear: '☀️',
-    Clouds: '☁️',
-    Rain: '🌧️',
-    Drizzle: '🌦️',
-    Thunderstorm: '⛈️',
-    Snow: '🌨️',
-    Mist: '🌫️',
-    Fog: '🌫️',
-    Haze: '🌤️',
-    Smoke: '💨',
-    Dust: '💨',
-};
-
 const MOCK_WEATHER: WeatherData = {
     condition: 'Partly Cloudy',
     temperature: 24,
@@ -37,53 +24,110 @@ const MOCK_WEATHER: WeatherData = {
     windSpeed: 12,
 };
 
-// You can set your OpenWeatherMap API key here or via settings
-let weatherApiKey: string | null = null;
+// ─── WMO Weather Code → Condition + Icon ──────────────────────────────────
 
-export function setWeatherApiKey(key: string) {
-    weatherApiKey = key;
+interface WMOInfo {
+    condition: string;
+    description: string;
+    icon: string;
 }
 
+function wmoCodeToInfo(code: number): WMOInfo {
+    if (code === 0)  return { condition: 'Clear',              description: 'Clear sky',                     icon: '☀️'  };
+    if (code === 1)  return { condition: 'Mostly Clear',       description: 'Mainly clear',                  icon: '🌤️' };
+    if (code === 2)  return { condition: 'Partly Cloudy',      description: 'Partly cloudy',                 icon: '⛅'  };
+    if (code === 3)  return { condition: 'Overcast',           description: 'Overcast',                      icon: '☁️'  };
+    if (code === 45) return { condition: 'Foggy',              description: 'Depositing rime fog',           icon: '🌫️' };
+    if (code === 48) return { condition: 'Foggy',              description: 'Icy fog',                       icon: '🌫️' };
+    if (code === 51) return { condition: 'Light Drizzle',      description: 'Light drizzle',                 icon: '🌦️' };
+    if (code === 53) return { condition: 'Drizzle',            description: 'Moderate drizzle',              icon: '🌦️' };
+    if (code === 55) return { condition: 'Heavy Drizzle',      description: 'Dense drizzle',                 icon: '🌧️' };
+    if (code === 56) return { condition: 'Freezing Drizzle',   description: 'Light freezing drizzle',        icon: '🌨️' };
+    if (code === 57) return { condition: 'Freezing Drizzle',   description: 'Heavy freezing drizzle',        icon: '🌨️' };
+    if (code === 61) return { condition: 'Light Rain',         description: 'Slight rain',                   icon: '🌧️' };
+    if (code === 63) return { condition: 'Rain',               description: 'Moderate rain',                 icon: '🌧️' };
+    if (code === 65) return { condition: 'Heavy Rain',         description: 'Heavy rain',                    icon: '🌧️' };
+    if (code === 66) return { condition: 'Freezing Rain',      description: 'Light freezing rain',           icon: '🌨️' };
+    if (code === 67) return { condition: 'Freezing Rain',      description: 'Heavy freezing rain',           icon: '🌨️' };
+    if (code === 71) return { condition: 'Light Snow',         description: 'Slight snowfall',               icon: '❄️'  };
+    if (code === 73) return { condition: 'Snow',               description: 'Moderate snowfall',             icon: '🌨️' };
+    if (code === 75) return { condition: 'Heavy Snow',         description: 'Heavy snowfall',                icon: '❄️'  };
+    if (code === 77) return { condition: 'Snow Grains',        description: 'Snow grains',                   icon: '🌨️' };
+    if (code === 80) return { condition: 'Light Showers',      description: 'Slight rain showers',           icon: '🌦️' };
+    if (code === 81) return { condition: 'Showers',            description: 'Moderate rain showers',         icon: '🌧️' };
+    if (code === 82) return { condition: 'Heavy Showers',      description: 'Violent rain showers',          icon: '⛈️'  };
+    if (code === 85) return { condition: 'Snow Showers',       description: 'Slight snow showers',           icon: '🌨️' };
+    if (code === 86) return { condition: 'Heavy Snow Showers', description: 'Heavy snow showers',            icon: '❄️'  };
+    if (code === 95) return { condition: 'Thunderstorm',       description: 'Thunderstorm',                  icon: '⛈️'  };
+    if (code === 96) return { condition: 'Hail Storm',         description: 'Thunderstorm with slight hail', icon: '⛈️'  };
+    if (code === 99) return { condition: 'Heavy Hail Storm',   description: 'Thunderstorm with heavy hail',  icon: '⛈️'  };
+    return { condition: 'Cloudy', description: 'Variable conditions', icon: '☁️' };
+}
+
+// ─── Main Fetch ────────────────────────────────────────────────────────────
+
 export async function getWeather(lat: number, lon: number): Promise<WeatherData> {
-    // Return cache if fresh
+    // Return cache if still fresh
     if (cachedWeather && Date.now() - lastWeatherFetch < WEATHER_CACHE_DURATION) {
         return cachedWeather;
     }
 
-    if (!weatherApiKey) {
-        return MOCK_WEATHER;
-    }
-
     try {
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
-        const response = await fetch(url);
+        const url =
+            `https://api.open-meteo.com/v1/forecast` +
+            `?latitude=${lat.toFixed(4)}` +
+            `&longitude=${lon.toFixed(4)}` +
+            `&current_weather=true` +
+            `&hourly=relativehumidity_2m` +
+            `&timezone=auto` +
+            `&forecast_days=1`;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
 
         if (!response.ok) {
-            throw new Error(`Weather API error: ${response.status}`);
+            throw new Error(`Open-Meteo error: ${response.status}`);
         }
 
         const data = await response.json();
+        const current = data.current_weather;
 
-        const mainCondition = data.weather?.[0]?.main || 'Clear';
+        if (!current) {
+            throw new Error('No current_weather in Open-Meteo response');
+        }
+
+        const wmoInfo = wmoCodeToInfo(current.weathercode ?? 0);
+        // Hourly humidity — index 0 is the first full hour of today
+        const humidity: number = data.hourly?.relativehumidity_2m?.[0] ?? 60;
+
         const weatherData: WeatherData = {
-            condition: mainCondition,
-            temperature: Math.round(data.main?.temp || 24),
-            description: data.weather?.[0]?.description || 'clear sky',
-            icon: WEATHER_ICONS[mainCondition] || '🌤️',
-            humidity: data.main?.humidity || 50,
-            windSpeed: Math.round((data.wind?.speed || 0) * 3.6), // Convert m/s to km/h
+            condition: wmoInfo.condition,
+            temperature: Math.round(current.temperature ?? 20),
+            description: wmoInfo.description,
+            icon: wmoInfo.icon,
+            humidity,
+            windSpeed: Math.round(current.windspeed ?? 0), // Open-Meteo returns km/h by default
         };
 
         cachedWeather = weatherData;
         lastWeatherFetch = Date.now();
 
         return weatherData;
-    } catch (error) {
-        console.warn('Weather fetch error, using mock:', error);
-        return MOCK_WEATHER;
+    } catch {
+        // Return stale cache if available, otherwise use mock
+        return cachedWeather ?? MOCK_WEATHER;
     }
 }
 
 export function getCachedWeather(): WeatherData {
-    return cachedWeather || MOCK_WEATHER;
+    return cachedWeather ?? MOCK_WEATHER;
+}
+
+/** Explicitly invalidate the cache (e.g. when user moves to a new city) */
+export function clearWeatherCache(): void {
+    cachedWeather = null;
+    lastWeatherFetch = 0;
 }
