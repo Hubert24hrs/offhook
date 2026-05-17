@@ -1,22 +1,17 @@
 // OFFHOOK — RevenueCat Purchases Service
-// Wraps react-native-purchases for in-app subscriptions
-// Replace placeholder SDK keys with real RevenueCat API keys from https://app.revenuecat.com
+// Wraps react-native-purchases for in-app subscriptions, lifetime, credits, and tips.
 
 import Purchases, {
     type PurchasesPackage,
     type CustomerInfo,
+    type PurchasesOfferings,
     LOG_LEVEL,
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
 // ─── RevenueCat SDK Keys ───────────────────────────────────────────────────
-// Set these in your .env file or EAS secrets:
-//   EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_xxxxxxxx
-//   EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_xxxxxxxx
-const RC_IOS_KEY =
-    (process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY as string) ?? '';
-const RC_ANDROID_KEY =
-    (process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY as string) ?? '';
+const RC_IOS_KEY = (process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY as string) ?? '';
+const RC_ANDROID_KEY = (process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY as string) ?? '';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -37,10 +32,19 @@ export interface PurchasePackage {
 export interface PurchaseResult {
     success: boolean;
     isPro: boolean;
+    isLifetime: boolean;
+    customerInfo?: CustomerInfo;
     error?: string;
+    purchasedProductIdentifier?: string;
 }
 
-// Track whether the SDK has been successfully configured
+export interface OffhookOfferings {
+    subscriptions: PurchasePackage[];
+    lifetime: PurchasePackage | null;
+    credits: PurchasePackage[];
+    tips: PurchasePackage[];
+}
+
 let isConfigured = false;
 
 // ─── Initialization ─────────────────────────────────────────────────────────
@@ -48,10 +52,7 @@ let isConfigured = false;
 export async function initializePurchases(userId?: string): Promise<void> {
     const apiKey = Platform.OS === 'ios' ? RC_IOS_KEY : RC_ANDROID_KEY;
 
-    if (!apiKey || apiKey.length < 5) {
-        // RevenueCat not configured — run in demo mode
-        return;
-    }
+    if (!apiKey || apiKey.length < 5) return;
 
     try {
         if (__DEV__) {
@@ -67,20 +68,38 @@ export async function initializePurchases(userId?: string): Promise<void> {
 
 // ─── Offerings ─────────────────────────────────────────────────────────────
 
-export async function getOfferings(): Promise<PurchasePackage[]> {
+export async function getOfferings(): Promise<OffhookOfferings> {
     if (!isConfigured) {
         throw new Error('No offerings available — RevenueCat not configured');
     }
 
     try {
         const offerings = await Purchases.getOfferings();
+        
+        // Assuming your RevenueCat has custom offerings for different product types, 
+        // or they are all bundled in 'current'. We will filter based on identifier.
+        // For standard setup, subscriptions are in current, others might be in custom offerings.
         const current = offerings.current;
+        if (!current) throw new Error('No offerings available');
 
-        if (!current || current.availablePackages.length === 0) {
-            throw new Error('No offerings available');
-        }
+        const allPackages = current.availablePackages.map(mapPackage);
 
-        return current.availablePackages.map(mapPackage);
+        // Filter based on expected product identifiers (as defined in plan)
+        const subscriptions = allPackages.filter(p => 
+            p.productIdentifier.includes('pro_monthly') || p.productIdentifier.includes('pro_annual')
+        );
+        const lifetime = allPackages.find(p => p.productIdentifier.includes('lifetime')) || null;
+        
+        // If credits/tips are in different offerings in RevenueCat dashboard:
+        const creditOffering = offerings.all['credits']?.availablePackages.map(mapPackage) || [];
+        const tipsOffering = offerings.all['tips']?.availablePackages.map(mapPackage) || [];
+
+        return {
+            subscriptions: subscriptions.length > 0 ? subscriptions : allPackages, // Fallback if naming differs
+            lifetime,
+            credits: creditOffering,
+            tips: tipsOffering
+        };
     } catch (error: any) {
         throw new Error(error?.message || 'Failed to fetch offerings');
     }
@@ -88,47 +107,44 @@ export async function getOfferings(): Promise<PurchasePackage[]> {
 
 // ─── Purchase ──────────────────────────────────────────────────────────────
 
-export async function purchasePackage(packageId: string): Promise<PurchaseResult> {
+export async function purchasePackage(pkgToBuy: PurchasePackage): Promise<PurchaseResult> {
     if (!isConfigured) {
-        return {
-            success: false,
-            isPro: false,
-            error: 'No offerings available — RevenueCat not configured',
-        };
+        return { success: false, isPro: false, isLifetime: false, error: 'RevenueCat not configured' };
     }
 
     try {
+        // Need to pass the original PurchasesPackage object. 
+        // Fetch it again quickly to guarantee we have the SDK object.
         const offerings = await Purchases.getOfferings();
-        const current = offerings.current;
+        let sdkPackage: PurchasesPackage | undefined;
+        
+        // Scan all offerings to find the exact package object
+        Object.values(offerings.all).forEach(offering => {
+            const found = offering.availablePackages.find(p => p.identifier === pkgToBuy.identifier);
+            if (found) sdkPackage = found;
+        });
 
-        if (!current) {
-            return { success: false, isPro: false, error: 'No offerings available' };
+        if (!sdkPackage) {
+            return { success: false, isPro: false, isLifetime: false, error: 'Package not found in SDK' };
         }
 
-        const pkg: PurchasesPackage | undefined = current.availablePackages.find(
-            (p) => p.identifier === packageId || p.product.identifier === packageId
-        );
-
-        if (!pkg) {
-            return { success: false, isPro: false, error: 'Package not found' };
-        }
-
-        const { customerInfo } = await Purchases.purchasePackage(pkg);
-        const isPro = checkProEntitlement(customerInfo);
-
-        return { success: true, isPro };
+        const { customerInfo } = await Purchases.purchasePackage(sdkPackage);
+        
+        return { 
+            success: true, 
+            isPro: checkProEntitlement(customerInfo),
+            isLifetime: checkLifetimeEntitlement(customerInfo),
+            customerInfo,
+            purchasedProductIdentifier: sdkPackage.product.identifier
+        };
     } catch (error: any) {
-        // User cancelled — not an error we surface
-        if (
-            error?.code === 1 ||
-            error?.message?.toLowerCase().includes('cancel') ||
-            error?.userCancelled
-        ) {
-            return { success: false, isPro: false, error: 'Purchase cancelled' };
+        if (error?.userCancelled) {
+            return { success: false, isPro: false, isLifetime: false, error: 'Purchase cancelled' };
         }
         return {
             success: false,
             isPro: false,
+            isLifetime: false,
             error: error?.message || 'Purchase failed. Please try again.',
         };
     }
@@ -138,21 +154,22 @@ export async function purchasePackage(packageId: string): Promise<PurchaseResult
 
 export async function restorePurchases(): Promise<PurchaseResult> {
     if (!isConfigured) {
-        return {
-            success: false,
-            isPro: false,
-            error: 'RevenueCat not configured',
-        };
+        return { success: false, isPro: false, isLifetime: false, error: 'RevenueCat not configured' };
     }
 
     try {
         const customerInfo = await Purchases.restorePurchases();
-        const isPro = checkProEntitlement(customerInfo);
-        return { success: true, isPro };
+        return { 
+            success: true, 
+            isPro: checkProEntitlement(customerInfo),
+            isLifetime: checkLifetimeEntitlement(customerInfo),
+            customerInfo
+        };
     } catch (error: any) {
         return {
             success: false,
             isPro: false,
+            isLifetime: false,
             error: error?.message || 'Restore failed. Please try again.',
         };
     }
@@ -172,10 +189,16 @@ export async function getCustomerInfo(): Promise<CustomerInfo | null> {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function checkProEntitlement(customerInfo: CustomerInfo): boolean {
-    // Check for active entitlement named "pro" or "premium"
+export function checkProEntitlement(customerInfo: CustomerInfo | null): boolean {
+    if (!customerInfo) return false;
     const entitlements = customerInfo.entitlements.active;
     return 'pro' in entitlements || 'premium' in entitlements;
+}
+
+export function checkLifetimeEntitlement(customerInfo: CustomerInfo | null): boolean {
+    if (!customerInfo) return false;
+    const entitlements = customerInfo.entitlements.active;
+    return 'lifetime' in entitlements;
 }
 
 function mapPackage(pkg: PurchasesPackage): PurchasePackage {

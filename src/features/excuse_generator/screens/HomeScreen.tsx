@@ -22,17 +22,26 @@ import { GlassPanel, Button, AnimatedText } from '../../../shared/components';
 import { useExcuseStore } from '../../../stores/excuseStore';
 import { useContactStore } from '../../../stores/contactStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useMonetizationStore } from '../../../stores/monetizationStore';
 import { EXCUSE_CATEGORIES } from '../../../shared/constants/categories';
 import { getWeather, type WeatherData } from '../../../core/services/weather';
 import { getCurrentLocation, type LocationData } from '../../../core/services/location';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
+const bannerAdUnitId = __DEV__ 
+  ? TestIds.BANNER 
+  : Platform.OS === 'ios' ? 'ca-app-pub-xxxxxxxxxxxxx/ccccccccc' : 'ca-app-pub-xxxxxxxxxxxxx/ddddddddd';
+
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation();
-    const { dailyGenerations, maxDailyFree, isPro, excuseHistory, loadHistory } = useExcuseStore();
+    const { dailyGenerations, maxDailyFree, excuseHistory, loadHistory } = useExcuseStore();
     const { contacts, loadContacts } = useContactStore();
     const { username, loadUser } = useUserStore();
+    const { hasPremiumAccess, setPaywallVisible } = useMonetizationStore();
+    
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [location, setLocation] = useState<LocationData | null>(null);
 
@@ -56,6 +65,7 @@ export const HomeScreen: React.FC = () => {
         }
     };
 
+    const isPro = hasPremiumAccess();
     const remainingExcuses = isPro ? '∞' : `${maxDailyFree - dailyGenerations}`;
 
     const displayWeather = weather
@@ -121,7 +131,11 @@ export const HomeScreen: React.FC = () => {
                         style={styles.quickExcuseButton}
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                            (navigation as any).navigate('Generator');
+                            if (!isPro && dailyGenerations >= maxDailyFree) {
+                                setPaywallVisible(true);
+                            } else {
+                                (navigation as any).navigate('Generator');
+                            }
                         }}
                     >
                         <LinearGradient
@@ -156,7 +170,11 @@ export const HomeScreen: React.FC = () => {
                                     style={styles.categoryCard}
                                     onPress={() => {
                                         Haptics.selectionAsync();
-                                        (navigation as any).navigate('Generator');
+                                        if (!isPro && dailyGenerations >= maxDailyFree) {
+                                            setPaywallVisible(true);
+                                        } else {
+                                            (navigation as any).navigate('Generator', { category: cat.id });
+                                        }
                                     }}
                                 >
                                     <LinearGradient
@@ -254,29 +272,38 @@ export const HomeScreen: React.FC = () => {
                             icon="📊"
                             title="Risk Meter"
                             subtitle="Analyze risk"
-                            onPress={() => (navigation as any).navigate('Generator')}
+                            onPress={() => {
+                                if (!isPro) setPaywallVisible(true);
+                                else (navigation as any).navigate('Generator');
+                            }}
                         />
                         <FeatureCard
                             icon="🎭"
                             title="Simulator"
                             subtitle="Practice"
-                            onPress={() => (navigation as any).navigate('Generator')}
-                            isPro
+                            onPress={() => {
+                                if (!isPro) setPaywallVisible(true);
+                                else (navigation as any).navigate('Generator');
+                            }}
+                            isPro={!isPro}
                         />
                         <FeatureCard
                             icon="🛡️"
                             title="Alibi"
                             subtitle="Full stories"
-                            onPress={() => (navigation as any).navigate('Generator')}
-                            isPro
+                            onPress={() => {
+                                if (!isPro) setPaywallVisible(true);
+                                else (navigation as any).navigate('Generator');
+                            }}
+                            isPro={!isPro}
                         />
                     </View>
                 </Animated.View>
 
-                {/* Pro Banner */}
+                {/* Pro Banner & Banner Ad */}
                 {!isPro && (
                     <Animated.View entering={FadeInDown.delay(900).springify()}>
-                        <Pressable onPress={() => (navigation as any).navigate('Premium')}>
+                        <Pressable onPress={() => setPaywallVisible(true)}>
                             <LinearGradient
                                 colors={['#6C63FF', '#FF2D92']}
                                 start={{ x: 0, y: 0 }}
@@ -289,6 +316,17 @@ export const HomeScreen: React.FC = () => {
                                 </Text>
                             </LinearGradient>
                         </Pressable>
+                        
+                        {/* Banner Ad for Free Users */}
+                        <View style={styles.adContainer}>
+                            <BannerAd 
+                                unitId={bannerAdUnitId}
+                                size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                                requestOptions={{
+                                    requestNonPersonalizedAdsOnly: true,
+                                }}
+                            />
+                        </View>
                     </Animated.View>
                 )}
 
@@ -557,5 +595,10 @@ const styles = StyleSheet.create({
         ...Typography.bodySmall,
         color: 'rgba(255,255,255,0.8)',
         marginTop: Spacing.xs,
+    },
+    adContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: Spacing.md,
     },
 });

@@ -11,6 +11,7 @@ import { useUserStore } from './src/stores/userStore';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { initializePurchases } from './src/core/services/purchases';
 import { historyManager } from './src/core/ai';
+import { PaywallSheet } from './src/features/monetization/components/PaywallSheet';
 
 // Error boundary for web debugging
 class ErrorBoundary extends React.Component<
@@ -100,6 +101,7 @@ export default function App() {
         <NavigationContainer theme={DarkNavTheme}>
           <AppNavigator />
         </NavigationContainer>
+        <PaywallSheet />
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

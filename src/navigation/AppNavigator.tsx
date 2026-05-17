@@ -6,6 +6,9 @@ import { OnboardingScreen } from '../features/onboarding/screens/OnboardingScree
 import { AuthScreen } from '../features/auth/screens/AuthScreen';
 import { ResultScreen } from '../features/excuse_generator/screens/ResultScreen';
 import { PremiumScreen } from '../features/monetization/screens/PremiumScreen';
+import { CreditPackScreen } from '../features/monetization/screens/CreditPackScreen';
+import { TipJarScreen } from '../features/monetization/screens/TipJarScreen';
+import { ReferralScreen } from '../features/monetization/screens/ReferralScreen';
 import { TabNavigator } from './TabNavigator';
 import type { RootStackParamList } from './types';
 
@@ -28,7 +31,8 @@ export const AppNavigator: React.FC = () => {
                 <Stack.Screen name="Auth" component={AuthScreen} />
             ) : (
                 <>
-                    <Stack.Screen name="Main" component={TabNavigator} />
+                    <Stack.Screen
+                        name="Main" component={TabNavigator} />
                     <Stack.Screen
                         name="Result"
                         component={ResultScreen}
@@ -38,6 +42,21 @@ export const AppNavigator: React.FC = () => {
                         name="Premium"
                         component={PremiumScreen}
                         options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+                    />
+                    <Stack.Screen
+                        name="CreditPack"
+                        component={CreditPackScreen}
+                        options={{ animation: 'slide_from_right' }}
+                    />
+                    <Stack.Screen
+                        name="TipJar"
+                        component={TipJarScreen}
+                        options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+                    />
+                    <Stack.Screen
+                        name="Referral"
+                        component={ReferralScreen}
+                        options={{ animation: 'slide_from_right' }}
                     />
                 </>
             )}

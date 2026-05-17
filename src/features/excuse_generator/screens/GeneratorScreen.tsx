@@ -19,6 +19,8 @@ import { GlassPanel, Button, CategorySelector } from '../../../shared/components
 import { useExcuseStore } from '../../../stores/excuseStore';
 import { useContactStore } from '../../../stores/contactStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useMonetizationStore } from '../../../stores/monetizationStore';
+import { useAds } from '../../../hooks/useAds';
 import {
     EXCUSE_CATEGORIES,
     TONES,
@@ -31,9 +33,10 @@ import type { TabScreenProps } from '../../../navigation/types';
 export const GeneratorScreen: React.FC = () => {
     const navigation = useNavigation();
     const route = useRoute<TabScreenProps<'Generator'>['route']>();
-    const { generateExcuse, isGenerating, error, setCategory, setTone, setSituation, setUrgency } = useExcuseStore();
+    const { generateExcuse, isGenerating, error, dailyGenerations, maxDailyFree } = useExcuseStore();
     const { contacts } = useContactStore();
-    const { isPro } = useUserStore();
+    const { hasPremiumAccess, setPaywallVisible, creditBalance, deductCredit } = useMonetizationStore();
+    const { interstitialLoaded, rewardedLoaded, showInterstitial, showRewarded } = useAds();
 
     const [contactName, setContactName] = useState('');
     const [relationship, setRelationship] = useState('friend');
@@ -60,10 +63,37 @@ export const GeneratorScreen: React.FC = () => {
         c.name.toLowerCase().includes(contactSearch.toLowerCase())
     );
 
+    const isPro = hasPremiumAccess();
+
     const handleGenerate = async () => {
         if (!contactName.trim()) {
             Alert.alert('Missing Contact', 'Please enter who the excuse is for.');
             return;
+        }
+
+        if (!isPro && dailyGenerations >= maxDailyFree) {
+            if (creditBalance > 0) {
+                // Consume a credit
+                deductCredit(1);
+            } else {
+                // Out of free daily excuses and out of credits
+                Alert.alert(
+                    'Daily Limit Reached',
+                    'You have run out of free excuses for today. Upgrade to Pro for unlimited access, or watch a quick ad to get 2 bonus excuses!',
+                    [
+                        { text: 'Upgrade to Pro', onPress: () => setPaywallVisible(true) },
+                        { 
+                            text: rewardedLoaded ? 'Watch Ad' : 'Not Available', 
+                            onPress: () => {
+                                if (rewardedLoaded) showRewarded();
+                                else Alert.alert('Ad not ready', 'Please try again in a few seconds.');
+                            } 
+                        },
+                        { text: 'Cancel', style: 'cancel' }
+                    ]
+                );
+                return;
+            }
         }
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -78,6 +108,11 @@ export const GeneratorScreen: React.FC = () => {
                 urgency: selectedUrgency,
                 situation: situation.trim(),
             });
+
+            // Show interstitial every 3rd excuse for free users
+            if (!isPro && (dailyGenerations + 1) % 3 === 0 && interstitialLoaded) {
+                showInterstitial();
+            }
 
             // Navigate to result screen
             (navigation as any).navigate('Result');

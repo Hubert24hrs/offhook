@@ -5,7 +5,7 @@
 //   eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_IOS_KEY --value appl_...
 //   eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_ANDROID_KEY --value goog_...
 
-import { ExpoConfig, ConfigContext } from 'expo/config';
+import { ExpoConfig, ConfigContext } from 'expo/config/index.js';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config,
@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     extra: {
         eas: {
-            projectId: 'offhook-mvp',
+            projectId: 'b4c30da3-2229-4c4f-8694-8144b6e05584',
         },
         privacyPolicyUrl: 'https://offhook.app/privacy',
         supportUrl: 'https://offhook.app/support',
@@ -70,5 +70,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
                     'OFFHOOK uses your location to generate context-aware excuses.',
             },
         ],
+        [
+            "react-native-google-mobile-ads",
+            {
+                "androidAppId": "ca-app-pub-3940256099942544~3347511713", // Test Android ID
+                "iosAppId": "ca-app-pub-3940256099942544~1458002511", // Test iOS ID
+                "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you."
+            }
+        ]
     ],
 });

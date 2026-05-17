@@ -10,6 +10,9 @@ export type RootStackParamList = {
     Main: NavigatorScreenParams<TabParamList>;
     Result: undefined;
     Premium: undefined;
+    CreditPack: undefined;
+    TipJar: undefined;
+    Referral: undefined;
 };
 
 // Bottom tab params

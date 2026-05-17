@@ -21,10 +21,14 @@ import { useUserStore } from '../../../stores/userStore';
 import { useExcuseStore } from '../../../stores/excuseStore';
 
 
+import { useMonetizationStore } from '../../../stores/monetizationStore';
+
 export const SettingsScreen: React.FC = () => {
     const navigation = useNavigation();
-    const { username, email, region, language, isPro, apiKey, logout, setApiKey } = useUserStore();
+    const { username, email, region, language, apiKey, logout, setApiKey } = useUserStore();
     const { excuseHistory, dailyGenerations, maxDailyFree } = useExcuseStore();
+    const { hasPremiumAccess } = useMonetizationStore();
+    const isPro = hasPremiumAccess();
     const [showApiKey, setShowApiKey] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState(apiKey || '');
     const [apiKeySaved, setApiKeySaved] = useState(false);
@@ -204,6 +208,28 @@ export const SettingsScreen: React.FC = () => {
                     </GlassPanel>
                 </Animated.View>
 
+                {/* Store & Support */}
+                <Animated.View entering={FadeInDown.delay(450).springify()}>
+                    <GlassPanel>
+                        <Text style={styles.sectionTitle}>💎 Extras</Text>
+                        <SettingRow
+                            label="Refer a Friend (Get Credits)"
+                            value="🎁"
+                            onPress={() => (navigation as any).navigate('Referral')}
+                        />
+                        <SettingRow
+                            label="Get More Excuses"
+                            value="🪙"
+                            onPress={() => (navigation as any).navigate('CreditPack')}
+                        />
+                        <SettingRow
+                            label="Tip Jar"
+                            value="💖"
+                            onPress={() => (navigation as any).navigate('TipJar')}
+                        />
+                    </GlassPanel>
+                </Animated.View>
+
                 {/* Privacy & Security */}
                 <Animated.View entering={FadeInDown.delay(500).springify()}>
                     <GlassPanel>
@@ -216,17 +242,17 @@ export const SettingsScreen: React.FC = () => {
                         />
                         <SettingRow
                             label="Privacy Policy"
-                            value="→"
+                            value=""
                             onPress={() => handleOpenLink('https://offhook.app/privacy')}
                         />
                         <SettingRow
                             label="Terms of Service"
-                            value="→"
+                            value=""
                             onPress={() => handleOpenLink('https://offhook.app/terms')}
                         />
                         <SettingRow
                             label="Support"
-                            value="→"
+                            value=""
                             onPress={() => handleOpenLink('mailto:support@offhook.app')}
                         />
                     </GlassPanel>
