@@ -5,6 +5,7 @@ import type { ExcuseResponse, ExcuseLogEntry } from '../core/ai';
 import { generateExcuse as aiGenerateExcuse } from '../core/ai/ai_service';
 import { buildRealContext } from '../core/services/context';
 import { useUserStore } from './userStore';
+import { Analytics } from '../core/services/analytics';
 
 interface ExcuseState {
     // Generation
@@ -115,6 +116,9 @@ export const useExcuseStore = create<ExcuseState>((set, get) => ({
                 dailyGenerations: state.dailyGenerations + 1,
                 excuseHistory: [logEntry, ...state.excuseHistory],
             });
+
+            // Track event
+            Analytics.trackExcuseGenerated(params.category, params.tone, excuse.risk_score);
         } catch (error: any) {
             set({
                 isGenerating: false,

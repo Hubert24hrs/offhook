@@ -10,8 +10,15 @@ import { Colors } from './src/core/theme';
 import { useUserStore } from './src/stores/userStore';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { initializePurchases } from './src/core/services/purchases';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { historyManager } from './src/core/ai';
+import { Analytics } from './src/core/services/analytics';
 import { PaywallSheet } from './src/features/monetization/components/PaywallSheet';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder@sentry.io/123',
+});
 
 // Error boundary for web debugging
 class ErrorBoundary extends React.Component<
@@ -24,6 +31,9 @@ class ErrorBoundary extends React.Component<
   }
   static getDerivedStateFromError(error: any) {
     return { hasError: true, error };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    Sentry.captureException(error, { extra: errorInfo });
   }
   render() {
     if (this.state.hasError) {
@@ -54,7 +64,7 @@ const DarkNavTheme = {
   },
 };
 
-export default function App() {
+function App() {
   const { loadUser } = useUserStore();
   const [isReady, setIsReady] = useState(false);
 
@@ -66,6 +76,13 @@ export default function App() {
     await loadUser();
     // Initialize history manager (anti-repetition engine)
     await historyManager.initialize();
+    
+    // Initialize Analytics
+    await Analytics.init();
+    
+    // Request tracking permissions for ads
+    await requestTrackingPermissionsAsync();
+
     // Initialize RevenueCat (no-op if keys not configured)
     const { username } = useUserStore.getState();
     await initializePurchases(username || undefined);
@@ -147,3 +164,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 });
+
+export default Sentry.wrap(App);
