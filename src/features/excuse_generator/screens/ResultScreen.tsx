@@ -18,12 +18,13 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../core/theme';
 import { GlassPanel, Button, RiskGauge } from '../../../shared/components';
 import { useExcuseStore } from '../../../stores/excuseStore';
+import { Analytics } from '../../../core/services/analytics';
 import { scheduleFollowUpReminder } from '../../../core/services/notifications';
 import type { RootStackScreenProps } from '../../../navigation/types';
 
 export const ResultScreen: React.FC = () => {
     const navigation = useNavigation();
-    const { currentExcuse, currentRiskScore, currentRiskReason } = useExcuseStore();
+    const { currentExcuse, currentRiskScore, currentRiskReason, selectedCategory } = useExcuseStore();
     const [copied, setCopied] = useState(false);
     const [followUpScheduled, setFollowUpScheduled] = useState(false);
 
@@ -52,6 +53,9 @@ export const ResultScreen: React.FC = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        
+        // Track event
+        Analytics.trackExcuseShared(selectedCategory, 'copy');
     };
 
     const handleShare = async () => {
@@ -59,6 +63,9 @@ export const ResultScreen: React.FC = () => {
             await Share.share({
                 message: currentExcuse.excuse_text,
             });
+            
+            // Track event
+            Analytics.trackExcuseShared(selectedCategory, 'share_sheet');
         } catch (error) {
             // User cancelled
         }
